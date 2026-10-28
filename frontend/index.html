@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stock Cycles</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>Stock Cycles</h1>
+  <form id="form" class="card">
+    <label>Ticker <input id="ticker" value="AAPL" required maxlength="12"></label>
+    <label>Years <input id="years" type="number" value="10" min="0.1" max="30" step="any" required></label>
+    <label>Thresholds (%) <input id="thresholds" value="5 10 20" required></label>
+    <button>Analyze</button>
+  </form>
+  <p id="status"></p>
+  <div id="price-chart" class="card chart"></div>
+  <div id="box-chart" class="card chart"></div>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

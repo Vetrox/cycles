@@ -4,20 +4,59 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stock Cycles</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main>
-  <h1>Stock Cycles</h1>
-  <form id="form" class="card">
-    <label>Ticker <input id="ticker" value="AAPL" required maxlength="12"></label>
-    <label>Years <input id="years" type="number" value="10" min="0.1" max="30" step="any" required></label>
-    <label>Thresholds (%) <input id="thresholds" value="5 10 20" required></label>
+<header class="topbar">
+  <div class="brand"><span class="logo"></span><h1>Stock Cycles</h1></div>
+  <form id="form">
+    <label class="field-ticker"><span class="field-label">Ticker</span>
+      <input id="ticker" value="AAPL" required maxlength="12" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+      <span class="hint">Any symbol</span></label>
+    <label class="field-years"><span class="field-label">Years</span>
+      <input id="years" type="number" value="10" min="0.1" max="30" step="any" required inputmode="decimal" enterkeyhint="go">
+      <span class="hint">Decimals ok, e.g. 2.5</span></label>
+    <label class="field-thresholds"><span class="field-label">Thresholds (%)</span>
+      <input id="thresholds" value="5 10 20" required autocomplete="off" placeholder="e.g. 5 10 20" enterkeyhint="go">
+      <span id="ranges" class="hint mono"></span></label>
     <button>Analyze</button>
   </form>
-  <p id="status"></p>
-  <div id="price-chart" class="card chart"></div>
-  <div id="box-chart" class="card chart"></div>
+</header>
+<main>
+  <p id="status" role="status"></p>
+  <div id="summary" hidden>
+    <span class="summary-name"><span id="company"></span> <span id="symbol"></span></span>
+    <span class="stat"><span class="stat-label wide-only">average close over <span class="avg-years"></span> years:</span><span class="stat-label narrow-only">Avg close · <span class="avg-years"></span>y</span><b id="average" class="mono"></b></span>
+    <span class="stat"><b id="cycle-count" class="mono"></b><span class="stat-label cap">cycles</span></span>
+  </div>
+  <section id="results" hidden>
+    <aside class="explainer" aria-label="How to read the charts">
+      <div>
+        <h3>Stock Prices</h3>
+        <p>A cycle starts at a high price, falls to a low, and ends on the first day the price is back at that high. Each colored bracket is one cycle. Its top line marks the high price, its lowest point marks the low, and its color shows how far the price fell. Smaller cycles often sit inside larger ones. Falls that haven't recovered yet aren't included. Falls below the lowest threshold count toward the cycle total but aren't drawn.</p>
+      </div>
+      <div>
+        <h3>Stock cycle period</h3>
+        <p>Each box shows the number of weeks from a cycle's high back to the day the price recovered to it, grouped by how far the price fell. <span class="mono">n</span> is the number of cycles in each group.</p>
+      </div>
+    </aside>
+    <div class="card price-card">
+      <div class="card-head">
+        <h2 id="price-title"></h2>
+        <div id="legend" class="legend"></div>
+      </div>
+      <div id="price-chart" class="chart"></div>
+    </div>
+    <div class="card box-card">
+      <div class="card-head card-head-stack">
+        <h2 id="box-title"></h2>
+        <p id="box-subtitle" class="subtitle"></p>
+      </div>
+      <div class="box-key"><span>Box: Q1–Q3</span><span>Line: median</span><span>Whiskers: 1.5 × IQR</span><span>○ outliers</span></div>
+      <div id="box-chart" class="chart"></div>
+    </div>
+  </section>
 </main>
 <script src="app.js"></script>
 </body>

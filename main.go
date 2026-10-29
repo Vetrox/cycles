@@ -96,6 +96,7 @@ func handlePrices(w http.ResponseWriter, r *http.Request) {
 func withSecurityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; "+
+			"font-src https://cdn.jsdelivr.net/npm/@sap-theming/theming-base-content@11.36.5/; "+ // SAP 72, loaded by the browser
 			"base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")

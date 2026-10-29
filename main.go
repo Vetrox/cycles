@@ -5,10 +5,12 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -105,11 +107,16 @@ func withSecurityHeaders(next http.Handler) http.Handler {
 }
 
 func main() {
+	addr := flag.String("addr", "127.0.0.1:16950", "listen address, loopback only")
+	flag.Parse()
+	if host, _, err := net.SplitHostPort(*addr); err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
+		log.Fatalf("-addr %q: must be a loopback IP and port", *addr)
+	}
 	static, _ := fs.Sub(webFiles, "web")
 	mux := http.NewServeMux()
 	mux.Handle("GET /", http.FileServerFS(static))
 	mux.HandleFunc("GET /api/prices", handlePrices)
-	srv := &http.Server{Addr: "127.0.0.1:8080", Handler: withSecurityHeaders(mux), // localhost only: reached via reverse proxy
+	srv := &http.Server{Addr: *addr, Handler: withSecurityHeaders(mux),
 		ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 << 10}
 	log.Fatal(srv.ListenAndServe())

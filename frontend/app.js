@@ -69,7 +69,7 @@ $('form').addEventListener('submit', async event => {
   if (!thresholds.length || thresholds.some(v => !Number.isFinite(v))) return showStatus('Thresholds: one or more numbers, e.g. 5 10 20', true);
   showStatus('Loading…');
   try {
-    const response = await fetch('/api/prices?' + new URLSearchParams({ ticker, years }));
+    const response = await fetch('api/prices?' + new URLSearchParams({ ticker, years }));
     if (!response.ok) return showStatus(await response.text(), true);
     const { company, dates, closes } = await response.json();
     if (!closes.length) return showStatus(`No data found for ticker ${ticker}.`, true);

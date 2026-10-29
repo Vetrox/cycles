@@ -29,8 +29,14 @@ const resizeCharts = new ResizeObserver(() => { priceChart?.resize(); boxChart?.
 ['price-chart', 'box-chart'].forEach(id => resizeCharts.observe($(id)));
 phone.addEventListener('change', () => renderBox?.());
 
-const go = new Go();
-const wasmReady = WebAssembly.instantiateStreaming(fetch('cycles.wasm'), go.importObject).then(result => { go.run(result.instance); });
+const wasmReady = (async () => {
+  if (typeof WebAssembly !== 'object') throw new Error('this browser has WebAssembly turned off (in Safari, for example by Lockdown Mode)');
+  const go = new Go();
+  const { instance } = await WebAssembly.instantiateStreaming(fetch('cycles.wasm'), go.importObject);
+  go.run(instance);
+})();
+const showWasmError = error => showStatus(`Cycles cannot be calculated: ${error.message}`, true);
+wasmReady.catch(showWasmError);
 
 const showRanges = () => {
   const thresholds = parseThresholds($('thresholds').value);
@@ -67,13 +73,17 @@ $('form').addEventListener('submit', async event => {
   const ticker = $('ticker').value.trim().toUpperCase(), years = Number($('years').value);
   const thresholds = parseThresholds($('thresholds').value);
   if (!thresholds.length || thresholds.some(v => !Number.isFinite(v))) return showStatus('Thresholds: one or more numbers, e.g. 5 10 20', true);
+  try {
+    await wasmReady;
+  } catch (error) {
+    return showWasmError(error);
+  }
   showStatus('Loading…');
   try {
     const response = await fetch('api/prices?' + new URLSearchParams({ ticker, years }));
     if (!response.ok) return showStatus(await response.text(), true);
     const { company, dates, closes } = await response.json();
     if (!closes.length) return showStatus(`No data found for ticker ${ticker}.`, true);
-    await wasmReady;
     const { average, cycles, boxes } = findCycles(dates.map(Date.parse), closes, thresholds), displayName = `${company} (${ticker})`;
     const labels = thresholds.map((_, band) => bandLabel(thresholds, band)), colors = thresholds.map((_, band) => viridis(band / thresholds.length));
     const counts = thresholds.map((_, band) => cycles.filter(c => c.band === band).length);

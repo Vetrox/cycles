@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"embed"
 	"encoding/json"
 	"flag"
@@ -16,6 +17,8 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"stockcycles/guard"
 )
 
 //go:embed web
@@ -28,20 +31,7 @@ var (
 	validTicker    = regexp.MustCompile(`^[A-Z0-9.^=-]{1,12}$`)
 	validQuery     = regexp.MustCompile(`^[\p{L}\p{N} .,&'^=-]{1,40}$`)
 	yahooClient    = &http.Client{Timeout: 10 * time.Second}
-	yahooSlots     = make(chan struct{}, 8)
 )
-
-func limitYahoo(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case yahooSlots <- struct{}{}:
-			defer func() { <-yahooSlots }()
-			next(w, r)
-		default:
-			http.Error(w, "busy, retry later", http.StatusServiceUnavailable)
-		}
-	}
-}
 
 // getYahoo decodes only the fields v declares; everything else from upstream is dropped.
 func getYahoo(r *http.Request, u string, maxBytes int64, v any) error {
@@ -160,8 +150,13 @@ func main() {
 	static, _ := fs.Sub(webFiles, "web")
 	mux := http.NewServeMux()
 	mux.Handle("GET /", http.FileServerFS(static))
-	mux.HandleFunc("GET /api/prices", limitYahoo(handlePrices))
-	mux.HandleFunc("GET /api/search", limitYahoo(handleSearch))
+	key := make([]byte, 32)
+	rand.Read(key) // new on every start: outstanding challenges just expire
+	pow := guard.New(guard.Config{Key: key, PerMinute: 60, TTL: time.Minute, Tau: 10 * time.Second,
+		MinBits: 19}) // ≈0.5 s in a desktop browser (TinyGo SHA-256, ~1 MH/s)
+	mux.Handle("GET /api/challenge", pow.ChallengeHandler())
+	mux.Handle("GET /api/prices", pow.Middleware(http.HandlerFunc(handlePrices)))
+	mux.Handle("GET /api/search", pow.Middleware(http.HandlerFunc(handleSearch)))
 	srv := &http.Server{Addr: *addr, Handler: withSecurityHeaders(mux),
 		ReadHeaderTimeout: 5 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second,
 		MaxHeaderBytes: 16 << 10}

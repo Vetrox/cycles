@@ -1,4 +1,4 @@
-// Glue only: prices from /api/prices, compute in cycles.wasm, charts by ECharts.
+// Glue only: prices from /api/prices, compute and proof of work in cycles.wasm, charts by ECharts.
 // TinyGo's loader (wasm_exec.js) is prepended to this bundle by build.sh.
 import autocomplete from 'autocompleter';
 import echarts from './charts.js';
@@ -39,6 +39,24 @@ const wasmReady = (async () => {
 const showWasmError = error => showStatus(`Cycles cannot be calculated: ${error.message}`, true);
 wasmReady.catch(showWasmError);
 
+// Every API request needs a proof of work (guard/guard.go). Solving runs in slices of ~15 ms, so typing stays responsive.
+const SOLVE_SLICE = 2 ** 14;
+const proofOfWork = async signal => {
+  await wasmReady;
+  const { challenge, bits } = await (await fetch('api/challenge', { signal })).json();
+  for (let from = 0; ; from += SOLVE_SLICE) {
+    const proof = powSolve(challenge, bits, from, SOLVE_SLICE);
+    if (proof) return proof;
+    await (globalThis.scheduler?.yield?.() ?? new Promise(resolve => setTimeout(resolve)));
+    signal?.throwIfAborted();
+  }
+};
+const powFetch = async (url, signal) => {
+  const request = async () => fetch(url, { signal, headers: { 'X-PoW': await proofOfWork(signal) } });
+  const response = await request();
+  return response.status === 429 ? request() : response; // the difficulty rose while solving
+};
+
 const showRanges = () => {
   const thresholds = parseThresholds($('thresholds').value);
   $('ranges').textContent = thresholds.length && thresholds.every(Number.isFinite)
@@ -69,6 +87,8 @@ const legendItem = (name, swatch, label, count) => {
   return item;
 };
 
+let search;
+$('ticker').addEventListener('blur', () => search?.abort());
 autocomplete({
   input: $('ticker'),
   className: 'ticker-suggestions',
@@ -78,7 +98,9 @@ autocomplete({
   preventSubmit: 2, // PreventSubmit.OnSelect (a TypeScript-only enum): picking a ticker must not start the analysis
   fetch: async (text, update) => {
     if (document.activeElement !== $('ticker')) return;
-    const response = await fetch('api/search?' + new URLSearchParams({ q: text })).catch(() => null);
+    search?.abort();
+    search = new AbortController();
+    const response = await powFetch('api/search?' + new URLSearchParams({ q: text }), search.signal).catch(() => null);
     if (response?.ok && document.activeElement === $('ticker')) update(await response.json());
   },
   render: quote => {
@@ -110,7 +132,7 @@ $('form').addEventListener('submit', async event => {
   }
   showStatus('Loading…');
   try {
-    const response = await fetch('api/prices?' + new URLSearchParams({ ticker, years }));
+    const response = await powFetch('api/prices?' + new URLSearchParams({ ticker, years }));
     if (!response.ok) return showStatus(await response.text(), true);
     const { company, dates, closes } = await response.json();
     if (!closes.length) return showStatus(`No data found for ticker ${ticker}.`, true);

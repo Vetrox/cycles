@@ -2,11 +2,15 @@
 
 // All computation, compiled to WebAssembly (TinyGo). Called from app.js as
 // findCycles(times, closes, sortedThresholds) -> {average, cycles: [{peak, low, recovery, drop, days, band}], boxes: [{stats, outliers}]}
+// powSolve(challenge, bits, from, tries) -> X-PoW header value, or null if none of these nonces solves it
 package main
 
 import (
+	"encoding/base64"
 	"sort"
 	"syscall/js"
+
+	"stockcycles/puzzle"
 )
 
 func float64s(v js.Value) []float64 {
@@ -93,7 +97,21 @@ func findCycles(_ js.Value, args []js.Value) any {
 	return map[string]any{"average": sum / float64(max(n, 1)), "cycles": cycles, "boxes": boxes}
 }
 
+func powSolve(_ js.Value, args []js.Value) any {
+	b64 := base64.RawURLEncoding
+	challenge, err := b64.DecodeString(args[0].String())
+	if err != nil {
+		return nil
+	}
+	nonce, ok := puzzle.Solve(challenge, args[1].Int(), uint64(args[2].Float()), uint64(args[3].Float()))
+	if !ok {
+		return nil
+	}
+	return args[0].String() + "." + b64.EncodeToString(nonce)
+}
+
 func main() {
 	js.Global().Set("findCycles", js.FuncOf(findCycles))
+	js.Global().Set("powSolve", js.FuncOf(powSolve))
 	select {} // keep the runtime alive for calls from JavaScript
 }

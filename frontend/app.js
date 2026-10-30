@@ -1,5 +1,6 @@
 // Glue only: prices from /api/prices, compute in cycles.wasm, charts by ECharts.
 // TinyGo's loader (wasm_exec.js) is prepended to this bundle by build.sh.
+import autocomplete from 'autocompleter';
 import echarts from './charts.js';
 
 const $ = id => document.getElementById(id);
@@ -68,8 +69,37 @@ const legendItem = (name, swatch, label, count) => {
   return item;
 };
 
+autocomplete({
+  input: $('ticker'),
+  className: 'ticker-suggestions',
+  minLength: 1,
+  debounceWaitMs: 250,
+  disableAutoSelect: true, // Enter analyzes the typed ticker, not the first suggestion
+  preventSubmit: 2, // PreventSubmit.OnSelect (a TypeScript-only enum): picking a ticker must not start the analysis
+  fetch: async (text, update) => {
+    if (document.activeElement !== $('ticker')) return;
+    const response = await fetch('api/search?' + new URLSearchParams({ q: text })).catch(() => null);
+    if (response?.ok && document.activeElement === $('ticker')) update(await response.json());
+  },
+  render: quote => {
+    const row = document.createElement('div');
+    row.append(...[quote.symbol, [quote.exchDisp, quote.typeDisp].filter(Boolean).join(' · '), quote.longname || quote.shortname].map(text => {
+      const span = document.createElement('span');
+      span.textContent = text;
+      return span;
+    }));
+    return row;
+  },
+  onSelect: quote => { $('ticker').value = quote.symbol; },
+  customize: (input, rect, list, maxHeight) => { // width comes from CSS; an on-screen keyboard shrinks only the visual viewport
+    list.style.width = '';
+    list.style.maxHeight = `calc(${Math.min(maxHeight, visualViewport.offsetTop + visualViewport.height - rect.bottom)}px - .5rem)`;
+  },
+});
+
 $('form').addEventListener('submit', async event => {
   event.preventDefault();
+  $('ticker').blur(); // closes the suggestions, including a search still in flight, and the phone keyboard
   const ticker = $('ticker').value.trim().toUpperCase(), years = Number($('years').value);
   const thresholds = parseThresholds($('thresholds').value);
   if (!thresholds.length || thresholds.some(v => !Number.isFinite(v))) return showStatus('Thresholds: one or more numbers, e.g. 5 10 20', true);

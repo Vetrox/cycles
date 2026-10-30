@@ -27,6 +27,15 @@ input { font: 16px var(--mono); color: var(--ink); height: 44px; box-sizing: bor
 input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 #ticker { width: 140px; font-weight: 500; text-transform: uppercase; }
 #years { width: 120px; }
+/* autocompleter appends the list to <body> and positions it below #ticker */
+.ticker-suggestions { z-index: 10; width: min(30rem, 100vw - 2rem); box-sizing: border-box; margin-top: .25rem; padding: .25rem; overflow-y: auto;
+  overscroll-behavior: contain; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(21, 26, 36, .14); }
+.ticker-suggestions > div { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 12px; min-height: 44px; box-sizing: border-box;
+  padding: 7px 10px; border-radius: 6px; cursor: pointer; }
+.ticker-suggestions > div:hover, .ticker-suggestions > .selected { background: #e9eefc; }
+.ticker-suggestions span:first-child { font: 600 14px var(--mono); }
+.ticker-suggestions span:nth-child(2) { justify-self: end; text-align: right; font-size: 12px; color: var(--muted); }
+.ticker-suggestions span:last-child { grid-column: 1 / -1; font-size: 13px; color: #3d4556; }
 .field-thresholds { flex: 1; max-width: 420px; min-width: 200px; }
 #thresholds { width: 100%; }
 form button { font: 500 14px var(--sans); height: 44px; margin-top: 19px; padding: 0 20px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; }
